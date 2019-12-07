@@ -1,0 +1,58 @@
+from math import pi, cos, tan, sin, ceil
+import numpy as np
+import cflib
+import time
+import matplotlib.pyplot as plt
+from cflib.crazyflie import Crazyflie
+from cflib.positioning.motion_commander import MotionCommander
+from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+""" TO DO:
+The crazyflie will
+ 1. take off and move forward with respect to the body frame
+ 2. while the cf is not within 30 cm,
+       a. it will continue moving forward 
+       b. update the distance measurment of front, left, back right 
+       c. track its displacement (dx,dy)
+            c1. the displacement with respect to velocity
+            
+       d. update the map(array) of its environment
+            d1. each grid will be .10 m.  
+            d2. 
+"""
+
+
+URI = 'radio://0/80/2M'
+class cartographerCF:
+
+    def __init__(self):
+        # kinematic and position variables
+        self.x_est = [0, ]  # [m] x estimate position
+        self.y_est = [0, ]  # [m] y estimate position
+        self.cruise_velocity = 0.5  # [m/s] velocity of flight underway
+        # map variables
+        self.gridSize = .1  # [units/m] resolution of the grid for map
+        self.mapSize = 10  # meters
+        self.n = self.mapSize/self.gridSize # the size of the array for the map
+        self.map = np.ones([n, n])*0.5  # map of the array with coordinates at indices
+
+
+
+
+class cfControl():
+
+    hoverHeight = 0.3  # [m]
+    cruiseVelocity = 0.5  # [m/s]
+
+    def __init__(self):
+        #  connect to Crazyflie
+        cflib.crtp.init_drivers(enable_debug_driver=False)
+        self.cf = Crazyflie(ro_cache=None, rw_cache='cache')
+        with SyncCrazyflie(URI, cf=self.cf) as self.scf:
+            cfControl.flying(self)
+
+    def flying(self):
+        with MotionCommander(self.scf) as MC:
+            print('flying')
+
+
+cfControl()
