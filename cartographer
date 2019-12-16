@@ -1,11 +1,13 @@
 from math import pi, cos, tan, sin, ceil
 import numpy as np
 import cflib
+import skimage.draw as draw
 import time
 import matplotlib.pyplot as plt
 from cflib.crazyflie import Crazyflie
 from cflib.positioning.motion_commander import MotionCommander
 from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+from cflib.utils.multiranger import Multiranger
 """ TO DO:
 The crazyflie will
  1. take off and move forward with respect to the body frame
@@ -22,18 +24,7 @@ The crazyflie will
 
 
 URI = 'radio://0/80/2M'
-class cartographerCF:
 
-    def __init__(self):
-        # kinematic and position variables
-        self.x_est = [0, ]  # [m] x estimate position
-        self.y_est = [0, ]  # [m] y estimate position
-        self.cruise_velocity = 0.5  # [m/s] velocity of flight underway
-        # map variables
-        self.gridSize = .1  # [units/m] resolution of the grid for map
-        self.mapSize = 10  # meters
-        self.n = self.mapSize/self.gridSize # the size of the array for the map
-        self.map = np.ones([n, n])*0.5  # map of the array with coordinates at indices
 
 
 
@@ -44,15 +35,80 @@ class cfControl():
     cruiseVelocity = 0.5  # [m/s]
 
     def __init__(self):
+
+        # kinematic variables
+        self.cruise_velocity = 0.5  # [m/s] velocity of flight underway
+        # map variables
+        self.gridSize = .2  # [units/m] resolution of the grid for map
+        self.mapSize = 10  # meters
+        self.n = self.mapSize / self.gridSize  # the size of the array for the map
+        # position with respect to space frame( assume start center map)
+        self.x_s = int((self.n / 2)) - 1  # x with respect to space frame
+        self.y_s = int((self.n / 2)) - 1  # y with respect to space frame
+        self.theta_body = 0  # [rad] estimate of yaw
+        self.map = np.ones([int(self.n), int(self.n)]) * 0.5  # map of the array with coordinates at indices
+
+        # the map will have the spaceframe origin at [0,0] and the bodyframe origin at n/2
+
+
+
         #  connect to Crazyflie
         cflib.crtp.init_drivers(enable_debug_driver=False)
         self.cf = Crazyflie(ro_cache=None, rw_cache='cache')
         with SyncCrazyflie(URI, cf=self.cf) as self.scf:
-            cfControl.flying(self)
+            print('Crazyflie is connected')
+            with Multiranger(self.cf) as self.MR:
+                print('multiranger initialized...')
+###############################test area ######################
+
+                for i in range(10):
+                    self.frontScan2map()
+                    self.rightScan2map()
+                    time.sleep(.5)
+                plt.imshow(self.map, vmin = 0, vmax = 1, cmap='Greys')
+                plt.show()
+
+#########################################################
+    def frontScan2map(self):
+        # front
+        # get scan
+        front = self.MR._front_distance # [m], float
+        print(front)
+        # convert scan to map coordinates
+        while front is None:
+            front = self.MR._front_distance
+        front = int(front / self.gridSize)  # [units], int
+            # get points to update
+
+        col,row = draw.line(self.x_s, self.y_s, front + self.x_s, self.y_s)
+
+            # every index before the final is assumed to be free, update everthing until final index
+        self.map[self.x_s][self.y_s] = 1  # show current location of cf
+        self.map[col[-1],row[-1]] += 0.5
+        self.map[col[:-1],row[:-1]] -= 0.7
+
+    def rightScan2map(self):
+        # right
+        # get scan
+        right = self.MR._right_distance # [m], float
+        print(right)
+        # convert scan to map coordinates
+        while right is None:
+            right = self.MR._right_distance
+        right = int(right / self.gridSize)  # [units], int
+            # get points to update
+
+        col,row = draw.line(self.x_s, self.y_s, self.x_s, self.y_s - right)
+
+            # every index before the final is assumed to be free, update everthing until final index
+        self.map[self.x_s][self.y_s] = 1  # show current location of cf
+        self.map[col[-1],row[-1]] += 0.07
+        self.map[col[:-1],row[:-1]] -= 0.3
 
     def flying(self):
         with MotionCommander(self.scf) as MC:
             print('flying')
-
+            time.sleep(4)
+            MC.land()
 
 cfControl()
