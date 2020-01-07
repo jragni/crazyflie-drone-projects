@@ -20,9 +20,9 @@ class forwardControlFlight():
 
     def __init__(self):
         #PID constants  --- needs to be tuned 
-        self.Kp = .6  # Proportion control constant
-        self.Ki = 0.0001  # Integral control constant
-        self.Kd = 20  # Derivative control constant
+        self.Kp = .8  # Proportion control constant
+        self.Ki = 0.001  # Integral control constant
+        self.Kd = 300  # Derivative control constant
         self.distance_to_rotor = 0.05  # distance of the range sensor to the tip of the rotor
 
         # initialize the crazyflie API
@@ -56,7 +56,7 @@ class forwardControlFlight():
 
     def move(self):
 
-        errorTolerance = 0.25  # precision of distance to wall
+        errorTolerance = 0.05  # precision of distance to wall
         x_desired = 0.2  # [m] distance from wall
         currentDistance = self.frontSensorHandler()
         error = currentDistance - x_desired
@@ -65,21 +65,27 @@ class forwardControlFlight():
         count = 0  # used to limit print
         arrive = False
         while(abs(error) >= errorTolerance):
+
             error = self.frontSensorHandler() - x_desired -self.distance_to_rotor
-            print(error, self.frontSensorHandler())
+
             P = self.Kp * error  # proportional control
             I += (self.Ki * error)
+
             D = self.Kd * (error - previousError)
             PID = P + I + D
-            if PID > .6:
-                PID = 0.6  # set speed limit to .4 [m/s]
+            previousError = error
+            if (count == 5):
+                print( "P:",P," I:", I," D:",  D,"V:", PID,"Error: ", error)
 
-            if(count == 5):
-                print(P, I, D, PID)
                 count = 0
+            if PID > 1:
+                PID = 1  # set speed limit to .8 [m/s]
+
+
             self.MC.start_linear_motion(PID, 0, 0)
             count +=1
             time.sleep(.005)
+        print('final error: ',error)
         print('Arrived')
         self.MC.land()
 
